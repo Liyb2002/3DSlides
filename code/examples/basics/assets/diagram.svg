@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" font-family="Helvetica, Arial, sans-serif">
+  <rect width="800" height="450" rx="24" fill="#f5f5f7"/>
+  <g font-size="30" text-anchor="middle">
+    <rect x="40" y="165" width="180" height="120" rx="16" fill="#00798c"/>
+    <text x="130" y="235" fill="#fff">3D</text>
+    <rect x="310" y="165" width="180" height="120" rx="16" fill="#edae49"/>
+    <text x="400" y="235" fill="#1d1d1f">2D</text>
+    <rect x="580" y="165" width="180" height="120" rx="16" fill="#00798c"/>
+    <text x="670" y="235" fill="#fff">3D</text>
+  </g>
+  <g stroke="#1d1d1f" stroke-width="5" fill="none" marker-end="url(#a)">
+    <path d="M225 225 H300"/><path d="M495 225 H570"/>
+  </g>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#1d1d1f"/></marker></defs>
+  <text x="400" y="380" font-size="24" fill="#6e6e73" text-anchor="middle">a deck is a sequence of 2D pages and 3D spaces</text>
+</svg>

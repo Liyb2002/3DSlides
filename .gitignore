@@ -1,0 +1,16 @@
+# Only these are in the repo: the engine, the user folder, and two talks. Everything else stays local
+# (video/, process.3Dslides/, 3DSlides.app, ...).
+/*
+!/.gitignore
+!/code/
+!/user/
+!/demo.3Dslides/
+!/showcase.3Dslides/
+
+# this machine's agent approval and sessions (code/agent.py writes it)
+/user/agent.json
+
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/

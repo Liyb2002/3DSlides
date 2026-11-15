@@ -1,0 +1,77 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1d1d1f;
+  --accent: #d1495b;
+  --muted: #6e6e73;
+  --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: "SF Mono", Menlo, monospace;
+}
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+#root { position: fixed; inset: 0; user-select: none; }
+
+/* fixed-size stage (deck.size, default 1920x1080), scaled to fit window */
+.stage {
+  position: absolute; left: 50%; top: 50%;
+  transform-origin: 50% 50%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+}
+.slide { position: absolute; inset: 0; background: var(--bg); }
+.slide-canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; }
+.slide-overlay { position: absolute; inset: 0; pointer-events: none; }
+.slide-overlay a, .slide-overlay video[controls], .slide-overlay button { pointer-events: auto; }
+
+/* elements */
+.el { box-sizing: border-box; margin: 0; will-change: opacity, transform; }
+.el-text { font-size: 40px; line-height: 1.35; }
+.el-image, .el-video { object-fit: contain; display: block; }
+.el-bullets { font-size: 44px; line-height: 1.5; padding-left: 1.1em; }
+.el-bullets li { margin: 0.25em 0; }
+.el-bullets li::marker { color: var(--accent); }
+
+/* handy text styles for decks */
+.title { font-size: 88px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+.subtitle { font-size: 44px; color: var(--muted); }
+.heading { font-size: 64px; font-weight: 700; letter-spacing: -0.01em; }
+.caption { font-size: 30px; color: var(--muted); }
+.hl { color: var(--accent); }   /* not .accent: KaTeX uses that class for \hat */
+.label {
+  font-size: 30px; padding: 8px 16px; border-radius: 10px; white-space: nowrap;
+  background: rgba(255,255,255,0.9); color: var(--fg);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+  translate: -50% -100%;          /* anchor point = bottom-centre of label */
+}
+.on-dark { color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,0.45); }
+
+.slide-counter {
+  position: absolute; right: 36px; bottom: 24px; z-index: 10;
+  font-size: 22px; color: var(--muted); font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.dev-hud {
+  position: fixed; left: 8px; bottom: 8px; z-index: 100;
+  font: 12px/1.5 var(--mono); color: #0f0; background: rgba(0,0,0,0.7);
+  padding: 6px 10px; border-radius: 6px; white-space: pre; pointer-events: none;
+}
+.error-box {
+  position: fixed; left: 16px; right: 16px; top: 16px; z-index: 200; margin: 0;
+  font: 13px/1.4 var(--mono); color: #fff; background: #a00; padding: 12px;
+  white-space: pre-wrap; border-radius: 6px;
+}
+
+/* EasyFixture deck styles */
+.card {
+  font-size: 34px; line-height: 1.4; padding: 22px 28px; border-radius: 16px;
+  background: rgba(255,255,255,0.88); border-left: 6px solid var(--accent);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.08);
+}
+.card b { font-size: 38px; }
+.panel-title { font-size: 34px; text-align: center; color: var(--fg); }
+.eq { font-size: 36px; }
+.eq .katex-display { margin: 0; text-align: left; }
+.eq-big { font-size: 64px; }
+.eq-big .katex-display { text-align: center; }
+.label .katex { font-size: 1.05em; }
+.caption-strong { font-size: 40px; color: var(--fg); text-shadow: 0 0 12px #fff, 0 0 4px #fff; }
