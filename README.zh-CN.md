@@ -5,7 +5,7 @@
 **不再是平面的幻灯片。** 每一页都可以是一个活的 3D 场景：镜头在页与页之间飞行，可以打光、放进你自己的模型，
 也可以和普通的 2D 幻灯片混在一起，全部在浏览器里放映。AI agent 能替你搭场景、加页面，还会记住你的风格。
 
-作者：[Yuanbo Li](https://liyb2002.github.io/)。
+作者：[Yuanbo Li](https://liyb2002.github.io/)。欢迎 fork、改出你自己的版本，注明出处就行。
 
 ## 怎么用
 
@@ -16,50 +16,34 @@
 ## 功能
 
 ### 1. 一页就是一个 3D 场景，放映时可以随意拖拽查看
-放映时拖动鼠标转视角、滚轮缩放，当着观众实时操作。按 **R** 平滑回到原来的视角。
+放映时拖动转视角、滚轮缩放，按 **R** 平滑回到原视角。
 
 <img src="docs/gifs/01_look_around.webp" width="100%" alt="放映时拖拽查看 3D 幻灯片">
 
 ### 2. 添加 page：移动镜头，保存视角
-一个 page 就是一个镜头视角。添加 page，把镜头移到想看的地方，点 **set as current camera**（中文界面是“设为此页镜头”）。
-放映时每点一下，镜头就飞到下一页。
+一个 page 就是一个镜头视角：移到想看的地方，点 **设为此页镜头**。放映时镜头会在页与页之间飞行。
 
 <img src="docs/gifs/02_add_page.webp" width="100%" alt="添加 page 并保存视角">
 
 ### 3. 打光
-先把环境光调暗，再在任何一页加聚光灯和点光源。在场景里直接拖动，调颜色、强度和照射范围。
+任何一页都可以加聚光灯和点光源，调颜色、强度和照射范围。
 
-<img src="docs/gifs/03_lights.webp" width="100%" alt="添加聚光灯和点光源">
+<img src="docs/gifs/03_lights.webp" width="100%" alt="调暗环境光，加聚光灯和点光源">
 
-### 4. 新建 3D / 2D 场景
-**+ 新建 3D 场景**：上传一个模型（stl、obj、ply、glb、gltf、3mf），自动生成展示它的 3D 场景，可以直接转着看。
+### 4. 新建场景
+上传 3D 模型，或者让 agent 直接生成场景。当然，也可以用普通的 2D 幻灯片。
 
-<img src="docs/gifs/04_new_3d_upload.webp" width="100%" alt="上传模型新建 3D 场景">
-
-也可以点 **生成**（Generate），告诉 agent 场景里要有什么，它直接帮你把场景写出来。
-
-<img src="docs/gifs/04_new_3d_agent.webp" width="100%" alt="agent 写一个新的 3D 场景">
-
-**+ 新建 2D 场景**：普通的幻灯片，可以放文字、图片、视频，背景色自己选。
-从 3D 场景切到 2D 幻灯片只要点一下。
-
-<img src="docs/gifs/05_new_2d_scene.webp" width="100%" alt="新建 2D 场景">
+<img src="docs/gifs/04_new_scene_zh.webp" width="100%" alt="上传 3D 模型、让 agent 生成场景、新建 2D 幻灯片">
 
 ### 5. 写 TeX 公式
-在任何文本框里用 `$...$` 写 TeX，编辑结束就会渲染成公式。
+在任何文本框里把 TeX 写在 `$...$` 之间。
 
-<img src="docs/gifs/06_tex.webp" width="100%" alt="用 TeX 写公式">
+<img src="docs/gifs/05_tex.webp" width="100%" alt="用 TeX 写公式">
 
-### 6. 让 agent 来做，它还会记住你的偏好
-**连接 Agent** 会调用你自己电脑上的 [Kimi Code](https://www.kimi.com/code)、
-[Qwen Code](https://github.com/QwenLM/qwen-code) 或 [Codex](https://github.com/openai/codex)（需要先装好并登录）。
-让它新建场景或加页面，结果会直接出现在你的 deck 里。
+### 6. 让 agent 帮你做，它还会记住你的偏好
+**连接 Agent** 会在你的电脑上运行 [Codex](https://github.com/openai/codex)、[Kimi Code](https://www.kimi.com/code/docs/en/kimi-code-cli/reference/kimi-command.html) 或 [Qwen Code](https://qwenlm.github.io/qwen-code-docs/en/users/features/headless/)，替你搭场景、加页面，并把你的风格记在 `user/user_skills/`。
 
-<img src="docs/gifs/07_agent_zh.webp" width="100%" alt="agent 新建一个讲座">
-
-关闭面板时，它会提议把你要求过的风格（字体、排版、颜色等）记到 `user/user_skills/` 里，下次一开始就按你的风格来。
-
-<img src="docs/gifs/08_preferences_zh.webp" width="100%" alt="agent 提议记住你的偏好">
+<img src="docs/gifs/06_agent_zh.webp" width="100%" alt="agent 新建一个讲座，并记住你的偏好">
 
 ## 编辑器操作
 
@@ -73,20 +57,3 @@
 | ⌘Z / ⌘⇧Z | 撤销 / 重做 |
 | 拖动左侧列表里的场景 | 调整场景顺序 |
 | 右上角 中 \| EN | 切换编辑器的中英文界面 |
-
-## talk 是怎么存的
-
-一个 talk 就是一个文件夹 `<名字>.3Dslides/`（生成 app 后，Finder 里会显示成一个文件）：
-
-```
-showcase.3Dslides/
-  deck.js          talk 本身：一个导出所有幻灯片的 ES module（也可以直接手改）
-  overrides.json   编辑器里还没写回 deck.js 的修改
-  scenes/          deck.js 用到的 3D 场景（three.js）
-  assets/          模型、图片、视频、上传的文件
-```
-
-编辑器里的修改能写回 `deck.js` 的都会直接写回。文件一变，所有打开的编辑器和放映标签页都会实时更新。
-
-自带两个 talk：`showcase.3Dslides` 是四个简短的讲座（双摆混沌、灵巧机械手、直列四缸发动机、巴黎圣母院），
-`demo.3Dslides` 是一次走进梵高画作的漫游。
