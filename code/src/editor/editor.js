@@ -1,6 +1,6 @@
 // Editor ("normal view" in PowerPoint terms).
 //
-//  ┌ toolbar: ▶ Run from this slide · ▶ Run from start · save status ┐
+//  ┌ toolbar: ▶ Run from this slide · Presenter mode · Practice mode · save status ┐
 //  │ slide list │          slide (edit-mode Player)           │ inspector │
 //
 // - Pick a slide in the list; pick a step in the inspector (the slide is
@@ -31,7 +31,7 @@ import { SHAPES, shapeSVG, FONTS } from '../engine/elements.js';
 import { placeModels, setModel, modelAt } from '../engine/model_view.js';
 import { ModelHandles } from './model_handles.js';
 import { placeLights, setLight, lightOn, applyAmbient, ambientOf } from '../engine/lights.js';
-import { slideOverride, saveOverrides, mergeOverrides, removeElement, stripActions, cloneDef } from './overrides.js';
+import { slideOverride, saveOverrides, mergeOverrides, removeElement, stripActions, cloneDef, droppedNotes, OLD_SERVER } from './overrides.js';
 import { pagesOf, normalizeSteps } from '../engine/slide.js';
 import { loadDeck, watchDeck, swapDeck } from '../live.js';
 
@@ -163,7 +163,10 @@ export class Editor {
     const bar = h('header', { class: 'ed-bar' },
       h('span', { class: 'ed-title' }, this.deck.title || this.deckName),
       h('button', { class: 'ed-run', title: 'P: present from the page shown', onclick: () => this.run(this.player?.current?.index ?? 0, this.player?.current?.stepIndex ?? 0) }, '▶ Run from this slide'),
-      h('button', { title: 'Shift+P', onclick: () => this.run(0) }, 'Run from start'),
+      h('button', { title: 'Shift+P: from the start, in two windows: the slide full screen (audience) and notes + a small slide (you)',
+        onclick: () => this.present('presenter') }, 'Presenter mode'),
+      h('button', { title: 'rehearse with the microphone: what you say on each scene is written down, then AI tidies it into the scene’s notes',
+        onclick: () => this.present('practice', this.player?.current?.index ?? 0) }, 'Practice mode'),
       h('span', { class: 'ed-sep' }),
       h('button', { title: '←', onclick: () => this.player?.prev() }, '◀ step'),
       h('button', { title: '→ (plays the animation)', onclick: () => this.player?.next() }, 'step ▶'),
@@ -586,7 +589,10 @@ export class Editor {
       def.id ? h('div', { class: 'row' },
         h('button', { title: 'a copy of the page shown, right after it', onclick: () => this.duplicatePage(inst, inst.stepIndex) }, '⧉ duplicate page'),
         h('button', { class: 'danger', title: 'delete the page shown; the pages after it move up',
-          onclick: () => this.deletePage(inst, inst.stepIndex) }, '✕ delete page')) : null));
+          onclick: () => this.deletePage(inst, inst.stepIndex) }, '✕ delete page')) : null,
+      h('div', { class: 'row' },
+        h('button', { class: `grow ${this.notesOpen ? 'on' : ''}`, title: 'what you say on this scene (all its pages): shown in presenter mode',
+          onclick: () => { this.notesOpen = !this.notesOpen; this.renderInspector(); } }, this.notesOpen ? 'Close scene notes' : 'Scene notes'))));
 
     // camera
     if (inst.is3D) {
@@ -627,7 +633,7 @@ export class Editor {
     const other = els.filter((spec) => !pagesById.get(spec.id).includes(page));
     const shapes3d = this.modelsSection(inst);           // 3D shapes in a 3D scene: listed with the elements
     const hereRows = [...here.map(row), ...(shapes3d?.rows || [])];
-    parts.push(sec(`Elements · page ${page + 1}`,
+    parts.push(this.notesOpen ? this.notesSection(inst) : sec(`Elements · page ${page + 1}`,
       h('div', { class: 'add-label' }, 'Element'),
       h('div', { class: 'el-list' }, hereRows.length ? hereRows : h('p', { class: 'hint pad' }, 'nothing on this page')),
       other.length ? h('details', { class: 'el-other' }, h('summary', {}, `on other pages (${other.length})`), h('div', { class: 'el-list' }, other.map(row))) : null,
@@ -651,6 +657,23 @@ export class Editor {
     else { this.lightGizmos = []; if ((def.elements || []).some((e) => e.type === 'model')) this.refreshViews(inst); }
     for (const { el, spec } of inst.elements.values()) if (el._modelView) el.classList.toggle('model-unlocked', this.camUnlocked(spec.id));
     if (!inst.is3D || !this.selectedModel) { this.modelHandles?.dispose(); this.modelHandles = null; }
+  }
+
+  // the scene's speaker notes, in place of the elements while open: one text for the whole scene (every page)
+  notesSection(inst) {
+    const def = inst.def;
+    const ta = h('textarea', { class: 'notes-edit', placeholder: 'what you say on this scene (all its pages); presenter mode shows it' });
+    ta.value = def.notes || '';
+    ta.addEventListener('input', () => {
+      const v = ta.value;
+      if (v.trim()) def.notes = v; else delete def.notes;
+      this.record((o) => { o.notes = v.trim() ? v : null; }, inst);
+      this.save();
+    });
+    return h('section', { class: 'notes-sec' },
+      h('div', { class: 'add-label' }, `Scene notes · scene ${inst.index + 1}`),
+      ta,
+      h('p', { class: 'hint' }, 'notes follow the scene, not the page · Practice mode can write them from what you say'));
   }
 
   // several selected: they move together; make them a group (or undo one)
@@ -1968,11 +1991,12 @@ export class Editor {
       // the server's merged overrides, plus whatever was edited meanwhile
       this.ov = res.overrides;
       mergeOverrides(this.ov, this.pending);
+      if (droppedNotes(delta, res.overrides).length) throw new Error(OLD_SERVER);
       this.status.textContent = 'saved ✓';
       this.status.className = 'ed-status ok';
     } catch (e) {
       mergeOverrides(delta, this.pending); this.pending = delta;       // keep it for the next try
-      this.status.textContent = 'not saved — start the server with: python3 code/serve.py';
+      this.status.textContent = e.message === OLD_SERVER ? OLD_SERVER : 'not saved — start the server with: python3 code/serve.py';
       this.status.className = 'ed-status err';
     }
     this.saving = false;
@@ -2005,6 +2029,20 @@ export class Editor {
   flash(msg) {
     this.status.textContent = msg;
     this.status.className = 'ed-status ok';
+  }
+
+  // ------------------------------------------------------------ presenter / practice (present/talk_view.js)
+  // presenter: the audience window (the slide, full screen: drag it to the projector, F) opens now, from the click;
+  // this tab becomes the presenter's (notes + small slide). practice: this tab rehearses, from scene i.
+  async present(mode, i = 0) {
+    if (this.running) return;
+    if (document.activeElement?.isContentEditable || document.activeElement?.tagName === 'TEXTAREA') document.activeElement.blur();
+    const q = `?deck=${encodeURIComponent(this.deckName)}&file=${encodeURIComponent(this.deckFile)}`;
+    if (mode === 'presenter') window.open(`${q}&mode=run&role=audience#${i + 1}.0`, '3dslides-audience', 'popup,width=1280,height=760');
+    clearTimeout(this.saveTimer); this.saveTimer = null;
+    while (this.saving) await new Promise((r) => setTimeout(r, 50));
+    await this.flush();                                            // nothing typed is lost
+    location.href = `${q}&mode=${mode}#${i + 1}.0`;
   }
 
   // ------------------------------------------------------------ run mode
@@ -2089,7 +2127,7 @@ export class Editor {
       if (e.key === 'Escape' && this.selectedEl) { this.selectedEl = null; this.renderInspector(); return; }
       if (e.key === 'p' || e.key === 'P' || e.key === 'F5') {
         e.preventDefault();
-        this.run(e.shiftKey ? 0 : this.player?.current?.index ?? 0);
+        if (e.shiftKey) this.present('presenter'); else this.run(this.player?.current?.index ?? 0);
       }
     });
   }

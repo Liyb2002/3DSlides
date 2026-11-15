@@ -3,7 +3,9 @@
 //         the engine's own example is code/examples/basics)
 //   file  deck module in that folder without .js (default: deck)
 //   mode  edit (default): editor, like PowerPoint's normal view
-//         run: present, starting at #<slide>.<step>
+//         run: present, starting at #<slide>.<step>   (&role=audience: the audience window of presenter mode)
+//         presenter: the presenter's window (notes + small slide); practice: rehearse with the microphone
+//         (present/talk_view.js)
 //   dev   run mode with a HUD and free camera ([C] copies the pose)
 //   live=0  run mode without live sync (recordings: no reload when files change)
 import { Player } from './engine/player.js';
@@ -23,13 +25,22 @@ const root = document.getElementById('root');
 try {
   const { deck, overrides } = await loadDeck(deckUrl.href, baseUrl);
   document.title = deck.title || document.title;
-  if (mode === 'run') {
+  if (mode === 'presenter' || mode === 'practice') {
+    startI18n(document.body);
+    const { PresenterView, PracticeView } = await import('./present/talk_view.js');
+    const View = mode === 'presenter' ? PresenterView : PracticeView;
+    window.talk = new View(root, deck, { deckName, deckFile, baseUrl, deckUrl: deckUrl.href });
+  } else if (mode === 'run') {
+    const audience = params.get('role') === 'audience';     // presenter mode's slide window: it follows the presenter
+    let link = null;
     const player = new Player(root, deck, {
       baseUrl, mode: 'run', dev,
-      onExit: (i, k) => { location.href = `?deck=${deckName}&file=${deckFile}#${i + 1}.${k}`; },
+      onExit: audience ? null : (i, k) => { location.href = `?deck=${deckName}&file=${deckFile}#${i + 1}.${k}`; },
+      onChange: () => link?.send(),
     });
     window.player = player;
     player.start();
+    if (audience) link = (await import('./present/talk_view.js')).audienceWindow(player, deckName, deckFile);
     // edits saved from the editor (any tab) show up here live (not with ?live=0: recordings)
     if (params.get('live') !== '0') watchDeck({
       deckName, deckFile,

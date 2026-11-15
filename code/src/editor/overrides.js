@@ -9,6 +9,7 @@
 //       "added": true, "after": "<slide id>", "copyOf": "<slide id>"   (a copy of a slide)
 //       "deleted": true                                     (a slide deleted in the editor)
 //       "background": "#rrggbb" | null                      (a 2D slide's background; null: the theme's)
+//       "notes": "..." | null                               (the scene's speaker notes: every page of it; null: none)
 //       "elements": { "<element id>": { x, y, w, h, text, html, tex, on } | { deleted: true }
 //                     | { added: true, type, text, ... } } } },     (on: [from page, to page])
 //   "order": ["<slide id>", ...] }    (slides reordered in the editor: until written into deck.js)
@@ -41,6 +42,7 @@ export function applyOverrides(deck, ov) {
     const o = ov.slides?.[slideKey(def, i)];
     if (!o) return;
     if ('background' in o) { if (o.background) def.background = o.background; else delete def.background; }
+    if ('notes' in o) { if (o.notes) def.notes = o.notes; else delete def.notes; }
     if (o.camera) def.camera = { ...def.camera, ...o.camera };
     if (o.poses) def.poses = { ...(def.poses || {}), ...o.poses };
     if (o.ambient) {                                           // each page's ambient level
@@ -130,7 +132,7 @@ export function mergeOverrides(base, delta) {
   if (delta.order) base.order = delta.order;
   for (const [key, o] of Object.entries(delta.slides || {})) {
     const b = (base.slides[key] ||= {});
-    for (const k of ['added', 'after', 'def', 'deleted', 'background']) if (k in o) b[k] = o[k];
+    for (const k of ['added', 'after', 'def', 'deleted', 'background', 'notes']) if (k in o) b[k] = o[k];
     if (o.camera) b.camera = o.camera;
     if (o.poses) b.poses = { ...(b.poses || {}), ...o.poses };
     if (o.pageCameras) b.pageCameras = { ...(b.pageCameras || {}), ...o.pageCameras };
@@ -145,6 +147,12 @@ export function mergeOverrides(base, delta) {
   }
   return base;
 }
+
+// scenes whose notes the server did not keep (a server started before notes existed drops them silently)
+export function droppedNotes(delta, merged) {
+  return Object.entries(delta.slides || {}).filter(([k, o]) => o.notes && merged?.slides?.[k]?.notes !== o.notes).map(([k]) => k);
+}
+export const OLD_SERVER = 'notes not saved: the server is older than the editor, restart it (python3 code/serve.py)';
 
 // Saves send a delta; the server merges it into overrides.json, writes
 // text / position edits back into deck.js where it can and

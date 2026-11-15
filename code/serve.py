@@ -24,6 +24,8 @@ POST /api/undo | /api/redo ?deck=<folder>[&file=deck]: step back / forward
 through the saves of this server session (deck source + overrides together;
 saves less than 1.5 s apart count as one step).
 /api/agent/...: the editor's agent (Claude Code or Codex on this machine), see agent.py.
+POST /api/notes/polish {deck, file, scenes: [{key, scene, notes, transcript}]}: practice mode's transcripts tidied
+into speaker notes by that agent (read only: nothing written) -> {suggestions: {key: text}} | {error}.
 GET /api/root: the folder served (code/tools/open_deck.sh reuses a server already serving it).
 GET /api/stamp?deck=<folder>[&file=deck]: change stamps, polled by open pages
 so edits show up live in every editor / presenter tab.
@@ -134,6 +136,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         u = urllib.parse.urlparse(self.path)
         if u.path.startswith('/api/agent/'): return self.agent_post(u.path[len('/api/agent/'):])
+        if u.path == '/api/notes/polish':                               # practice mode: transcripts -> notes (agent.py)
+            n = int(self.headers.get('Content-Length', 0) or 0)
+            body = json.loads(self.rfile.read(n) or b'{}') if n else {}
+            if not self.deck_folder(body.get('deck', ''), body.get('file', 'deck')): return self.send_error(400, 'bad deck')
+            return self.send_json(agent.polish(body.get('deck', ''), body.get('file', 'deck'), body.get('scenes') or [], body.get('lang')))
         if u.path not in ('/api/save', '/api/undo', '/api/redo', '/api/upload'): return self.send_error(404)
         q = urllib.parse.parse_qs(u.query)
         if u.path == '/api/upload': return self.upload(q)
@@ -207,6 +214,9 @@ def merge(base, delta):
         b = slides.setdefault(key, {})
         for k in ('added', 'after', 'def', 'copyOf', 'deleted', 'background'):      # new / copied / deleted slides; a 2D slide's background
             if k in o: b[k] = o[k]
+        if 'notes' in o:                                                # the scene's speaker notes; null / empty: none
+            if o['notes']: b['notes'] = o['notes']
+            else: b.pop('notes', None)
         if 'camera' in o: b['camera'] = o['camera']
         if o.get('poses'): b.setdefault('poses', {}).update(o['poses'])
         for k, v in (o.get('pageCameras') or {}).items():                  # page k's camera (slide.js); null: none

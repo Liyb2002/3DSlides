@@ -15,6 +15,32 @@ try { stored = localStorage.getItem(KEY); } catch { /* none */ }
 export const LANG = stored === 'zh' ? 'zh' : 'en';
 
 const ZH = {
+  // presenter / practice mode, scene notes (present/talk_view.js)
+  'Presenter mode': '演讲者模式', 'Practice mode': '练习模式',
+  'Shift+P: from the start, in two windows: the slide full screen (audience) and notes + a small slide (you)': 'Shift+P：从头开始，两个窗口：全屏幻灯片（观众）和备注 + 小幻灯片（你）',
+  'rehearse with the microphone: what you say on each scene is written down, then AI tidies it into the scene’s notes': '用麦克风排练：记下你在每个场景说的话，再由 AI 理顺成该场景的备注',
+  'Close scene notes': '关闭场景备注', 'Scene notes': '场景备注',
+  'what you say on this scene (all its pages): shown in presenter mode': '你在这个场景（所有页）要说的话：在演讲者模式中显示',
+  'what you say on this scene (all its pages); presenter mode shows it': '你在这个场景（所有页）要说的话；演讲者模式会显示',
+  'notes follow the scene, not the page · Practice mode can write them from what you say': '备注跟随场景，不跟随页 · 练习模式可以根据你说的话来写',
+  'Presenter': '演讲者', 'Practice': '练习', 'End': '结束', 'audience window': '观众窗口', 'smaller notes': '备注字小一点', 'larger notes': '备注字大一点',
+  'open the audience window again (drag it to the projector, then F: full screen)': '重新打开观众窗口（拖到投影上，再按 F 全屏）',
+  'Esc: end the show and go back to the editor': 'Esc：结束放映，回到编辑器', 'Esc: back to the editor': 'Esc：回到编辑器',
+  'time since the start · click: pause / go on · double-click: back to 0': '开始以来的时间 · 单击：暂停 / 继续 · 双击：归零',
+  '→ / space / click: next · ←: back · Esc: end · the audience window follows': '→ / 空格 / 单击：下一步 · ←：上一步 · Esc：结束 · 观众窗口会跟着走',
+  'No notes for this scene. Write them in the editor (“scene notes”) or in Practice mode.': '这个场景还没有备注。可以在编辑器（“场景备注”）或练习模式里写。',
+  'next scene · ': '下一个场景 · ', 'last scene': '最后一个场景',
+  'Record': '录音', 'Stop recording': '停止录音', 'click again to clear all': '再点一次全部清除', 'forget every scene’s recording and suggestion (click twice)': '清除所有场景的录音文字和建议（点两次）', 'save every scene’s suggestion as its notes': '把每个场景的建议都保存为备注', 'listening…': '正在听…', 'microphone not allowed': '麦克风未授权',
+  'speech recognition needs the network': '语音识别需要联网', 'speech recognition is not available in this browser: use Chrome': '这个浏览器不支持语音识别：请用 Chrome',
+  'the language you speak (speech recognition)': '你说的语言（语音识别）',
+  'What you said · this scene': '你说的话 · 本场景', 'clear': '清除', 'forget what was recorded for this scene (to say it again)': '清除本场景的录音文字（重新说一遍）',
+  'Notes · this scene': '备注 · 本场景', 'no notes yet': '还没有备注', 'AI suggestion': 'AI 建议', 'discard': '丢弃', 'use as notes': '用作备注',
+  'save it as this scene’s notes': '保存为本场景的备注', 'clear all': '全部清除', 'forget every scene’s recording and suggestion': '清除所有场景的录音文字和建议',
+  'AI: tidy what I said into notes': 'AI：把我说的话理顺成备注',
+  'the agent connected in the editor tidies each recorded scene into notes, close to your own words; nothing is saved until you accept it': '编辑器里连接的 AI 把每个录过的场景理顺成备注，尽量保留你的原话；你接受之前不会保存',
+  'speak: it is written down here for this scene': '说吧：会记在这个场景下', 'press Record, then talk through the scene': '按“录音”，然后把这个场景讲一遍',
+  'nothing recorded yet': '还没有录到内容', 'AI suggestions': 'AI 建议', 'use all as notes': '全部用作备注', 'close': '关闭', 'skip': '跳过',
+  'notes now': '现在的备注', 'suggestion (edit freely)': '建议（可以直接改）', 'F: full screen · this window follows the presenter window': 'F：全屏 · 这个窗口跟随演讲者窗口',
   // the top bar
   '▶ Run from this slide': '▶ 从此页放映', 'Run from start': '从头放映', '◀ step': '◀ 上一步', 'step ▶': '下一步 ▶',
   '↶ undo': '↶ 撤销', '↷ redo': '↷ 重做', 'Connect to agent': '连接 Agent', 'saving…': '保存中…', 'saved ✓': '已保存 ✓',
@@ -87,7 +113,10 @@ const PATTERNS = [
   [/^added a (\w+) light on page (\d+)$/, '已在第 $2 页添加一盏 $1 灯'], [/^deleted “(.+)”$/, '已删除「$1」'], [/^restored “(.+)”$/, '已恢复「$1」'],
   [/^deleted the 3D shape “(.+)” · ⌘Z undoes$/, '已删除 3D 模型「$1」· ⌘Z 撤销'], [/^deleted the light “(.+)” · ⌘Z undoes$/, '已删除灯「$1」· ⌘Z 撤销'],
   [/^deleted scene (\d+) · ⌘Z undoes$/, '已删除场景 $1 · ⌘Z 撤销'], [/^duplicated scene (\d+) → (\d+)$/, '已复制场景 $1 → $2'],
-  [/^deleted (\d+) elements$/, '已删除 $1 个元素'], [/^replaced the picture of “(.+)”$/, '已替换「$1」的图片'],
+  [/^deleted (\d+) elements$/, '已删除 $1 个元素'],
+  [/^Scene (\d+) \/ (\d+)$/, '场景 $1 / $2'], [/^page (\d+) \/ (\d+)$/, '第 $1 / $2 页'], [/^Scene notes · scene (\d+)$/, '场景备注 · 场景 $1'],
+  [/^(\d+) scenes? recorded$/, '已录 $1 个场景'], [/^use all (\d+) suggestions as notes$/, '把 $1 条建议全部用作备注'], [/^(\d+) suggestions? ready: each shows on its scene, above its notes$/, '$1 条建议已生成：显示在各自场景的备注上方'], [/^(\d\d:\d\d:\d\d) \(paused\)$/, '$1（暂停）'], [/^Scene (\d+)$/, '场景 $1'],
+  [/^the agent is tidying (\d+) scenes?… \(a minute or two\)$/, 'AI 正在整理 $1 个场景…（一两分钟）'], [/^failed: (.*)$/, '失败：$1'], [/^replaced the picture of “(.+)”$/, '已替换「$1」的图片'],
   [/^copied (\d+) elements · ⌘V on any slide \/ page$/, '已复制 $1 个元素 · 在任意页 ⌘V'], [/^copied “(.+)” · ⌘V on any slide \/ page$/, '已复制「$1」· 在任意页 ⌘V'],
   [/^pasted (\d+) elements on scene (\d+), page (\d+)$/, '已粘贴 $1 个元素到场景 $2 第 $3 页'], [/^pasted “(.+)” on scene (\d+), page (\d+)$/, '已粘贴「$1」到场景 $2 第 $3 页'],
   [/^grouped (\d+) elements as (\w+) · a click on one selects them all$/, '已把 $1 个元素编为 $2 · 点其中一个会全选'], [/^ungrouped (\d+) elements$/, '已取消 $1 个元素的编组'],
@@ -111,7 +140,7 @@ export function t(s) {
 }
 
 // what is the talk's, not the editor's: never translated
-const TALK = '.slide-overlay, .slide, .stage, .ed-title, .ed-name, code, pre, .katex, .el-desc b, .pref-text, .ed-agent-line.user, .ed-agent-line.tool';
+const TALK = '.slide-overlay, .slide, .stage, .talk-user, .ed-title, .ed-name, code, pre, .katex, .el-desc b, .pref-text, .ed-agent-line.user, .ed-agent-line.tool';
 const skipped = (node) => { const el = node.nodeType === 1 ? node : node.parentElement; return !el || !!el.closest(TALK); };
 const typedIn = (node) => !!node.parentElement?.closest('textarea, input, [contenteditable="true"], [contenteditable="plaintext-only"]');   // (what is being typed)
 

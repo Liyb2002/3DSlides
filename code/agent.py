@@ -224,3 +224,45 @@ def save_preferences(items):
         with open(PREFS, 'w') as f:
             f.write(have.rstrip('\n') + f"\n\n## {time.strftime('%Y-%m-%d')}\n" + ''.join(f'- {s}\n' for s in new))
     return dict(ok=True, saved=len(new))
+
+
+# ---------------------------------------------------------------- practice mode: transcripts -> speaker notes
+POLISH = """You help a speaker turn a practice run-through into speaker notes for the talk in {deck}/{file}.js (you may read
+that file, and {deck}/overrides.json, to see what each scene shows, e.g. to fix technical terms the recognizer misheard;
+change no file). For each scene below you get its key, its number, the speaker's current notes (may be empty) and a
+speech-recognition transcript of what the speaker just said while practising that scene.
+
+Write the notes for each scene:
+- Stay as close as you can to the speaker's own words and order. Only remove fillers, false starts and repetitions, fix
+  words the recognizer obviously got wrong, fix grammar lightly, and break it into short lines.
+- If the scene already has notes, they are the base: keep their wording and formatting, change them only where the
+  transcript clearly says it differently or adds something. Never rewrite them in your own style; do not shorten them.
+- If the transcript is empty or unusable, give the current notes back unchanged.
+- Keep the speaker's language{lang}.
+Reply with only one JSON object: {{"<scene key>": "<notes>", ...}}, one entry per scene below, nothing else."""
+
+
+def polish(deck, file, scenes, lang=None):
+    """practice mode: each scene's transcript (and its current notes) tidied into notes by the approved agent, read
+    only (nothing written; the page saves what the user accepts) -> {suggestions: {key: text}} or {error}"""
+    who = load().get('agent')
+    if not who or who not in PARSE: return dict(error='no agent connected: connect one in the editor first (the agent button in the top bar)')
+    scenes = [dict(key=str(s.get('key')), scene=s.get('scene'), notes=s.get('notes') or '', transcript=s.get('transcript') or '')
+              for s in scenes if s.get('key') is not None]
+    if not scenes: return dict(suggestions={})
+    msg = POLISH.format(deck=deck, file=file, lang=f' (the talk is given in {lang})' if lang else '') + \
+        '\n\nScenes:\n' + json.dumps(scenes, ensure_ascii=False, indent=1)
+    try: out = subprocess.run(command(who, msg, None, read_only=True), cwd=ROOT, capture_output=True, text=True, timeout=900).stdout
+    except Exception as e: return dict(error=str(e))
+    text, scratch = '', {}
+    for line in out.splitlines():
+        try: ev = json.loads(line)
+        except Exception: continue
+        for o in PARSE[who](ev, scratch, 'k'):
+            if o['kind'] == 'text': text = o['text']
+    i, j = text.find('{'), text.rfind('}')
+    try: got = json.loads(text[i:j + 1]) if i >= 0 < j else None
+    except Exception: got = None
+    if not isinstance(got, dict): return dict(error='the agent did not answer with notes', raw=text[-600:])
+    keys = {s['key'] for s in scenes}
+    return dict(suggestions={str(k): str(v) for k, v in got.items() if str(k) in keys})
