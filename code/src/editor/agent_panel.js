@@ -1,5 +1,6 @@
 // The agent in the editor: "Connect to agent" (top bar) asks once which one may work on this project
-// (Claude Code or Codex, run by code/serve.py on this machine: code/agent.py) and keeps the answer in
+// (in English: Claude Code or Codex; in Chinese: Codex, Kimi Code or Qwen Code; run by code/serve.py on this
+// machine: code/agent.py) and keeps the answer in
 // user/agent.json; then a panel under the slide takes what you type and shows the agent at work. It edits
 // the deck's files itself; the editor reloads them live. When you close the panel after talking to it, the
 // agent lists the design preferences you showed (font, sizes, colours, …): all ticked, untick what is not
@@ -9,6 +10,8 @@
 // Each time the panel opens, the agent's first line says where you are: scene n, page k.
 // "+ New 3D scene → Generate" (generateScene): connect first if none is (the approval), then the panel opens
 // and the agent is asked to start: it says it will generate the scene and asks what it should show.
+
+import { LANG } from '../i18n.js';
 
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
@@ -88,11 +91,14 @@ export class AgentPanel {
       close(); await this.refresh(); if (after) after(); else this.show(true);
     };
     const note = h('p', { class: 'ed-agent-note' });
-    const CMD = { claude: 'claude --dangerously-skip-permissions --model opus', codex: 'codex --dangerously-bypass-approvals-and-sandbox -m gpt-6-luna' };
+    const CMD = { claude: 'claude --dangerously-skip-permissions --model opus', codex: 'codex --dangerously-bypass-approvals-and-sandbox -m gpt-6-luna',
+      kimi: 'kimi -p … (print mode: no approvals)', qwen: 'qwen --yolo' };
+    // the ones offered: in English Claude Code and Codex; in Chinese those that can be used from China
+    const offered = (LANG === 'zh' ? ['codex', 'kimi', 'qwen'] : ['claude', 'codex']).filter((k) => names[k]);
     const box = h('div', { class: 'ed-agent-ask' },
       h('h3', {}, 'Connect an agent'),
       h('p', {}, 'Approving one runs it in this folder with this command:'),
-      ...Object.keys(names).map((k) => h('div', { class: 'ed-agent-option' },
+      ...offered.map((k) => h('div', { class: 'ed-agent-option' },
         h('button', {
           class: 'primary', disabled: available[k] ? null : true, title: available[k] ? `approve ${names[k]}` : `${names[k]} is not installed on this computer`,
           onclick: () => pick(k),

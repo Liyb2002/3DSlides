@@ -1,7 +1,10 @@
-# Only these are in the repo: the engine, the user folder, and two talks. Everything else stays local
-# (video/, process.3Dslides/, 3DSlides.app, ...).
+# Only these are in the repo: the engine, the user folder, two talks, the README and its GIFs. Everything else
+# stays local (video/, process.3Dslides/, readme.3Dslides/, 3DSlides.app, ...).
 /*
 !/.gitignore
+!/README.md
+!/README.zh-CN.md
+!/docs/
 !/code/
 !/user/
 !/demo.3Dslides/

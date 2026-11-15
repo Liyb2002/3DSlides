@@ -1,5 +1,6 @@
-"""The editor's agent: Claude Code or Codex, run on this machine (their own command-line tools, already
-logged in), working in this folder on what you type in the editor.
+"""The editor's agent: Claude Code, Codex, Kimi Code or Qwen Code, run on this machine (their own command-line
+tools, already logged in), working in this folder on what you type in the editor. (The editor offers Claude Code
+and Codex in English, and Codex, Kimi Code and Qwen Code in Chinese: the ones that can be used from China.)
 
     GET  /api/agent/status          -> {available: {claude, codex}, agent: the approved one or null}
     POST /api/agent/connect {agent} -> approves it (once: kept in user/agent.json)
@@ -16,10 +17,10 @@ import json, os, shutil, subprocess, threading, time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))     # 3DSlides/
 USER = os.path.join(ROOT, 'user')
 STATE = os.path.join(USER, 'agent.json')
-AGENTS = {'claude': 'Claude Code', 'codex': 'Codex'}
+AGENTS = {'claude': 'Claude Code', 'codex': 'Codex', 'kimi': 'Kimi Code', 'qwen': 'Qwen Code'}
 # the models used here: Claude Code with Opus; Codex with its fast, affordable model (its non-interactive mode, which
 # a program has to use, does not take every model a ChatGPT sign-in allows in the interactive app)
-MODELS = {'claude': 'opus', 'codex': 'gpt-6-luna'}
+MODELS = {'claude': 'opus', 'codex': 'gpt-6-luna'}     # (Kimi Code, Qwen Code: their own default model)
 _running = {'proc': None}
 _lock = threading.Lock()
 
@@ -78,16 +79,7 @@ def prompt(text, context, deck, file):
 def stream(agent, deck, file, text, context, emit):
     """run the agent on one message; emit(dict) for each thing to show; returns when it is done"""
     st = load(); sessions = st.setdefault('sessions', {}); key = f'{agent}:{deck}'
-    msg = prompt(text, context, deck, file)
-    if agent == 'claude':
-        # approved once by the user: it works without asking (as `claude --dangerously-skip-permissions`)
-        cmd = ['claude', '-p', msg, '--output-format', 'stream-json', '--verbose', '--append-system-prompt', GUIDE,
-               '--dangerously-skip-permissions', '--model', MODELS['claude']]
-        if sessions.get(key): cmd += ['--resume', sessions[key]]
-    else:
-        # approved once by the user: no approvals, no sandbox (as `codex --dangerously-bypass-approvals-and-sandbox`)
-        base = ['codex', 'exec', '--json', '--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox', '-C', ROOT, '-m', MODELS['codex']]
-        cmd = (base + ['resume', sessions[key], msg]) if sessions.get(key) else base + [GUIDE + '\n\n' + msg]
+    cmd = command(agent, prompt(text, context, deck, file), sessions.get(key))
     try:
         proc = subprocess.Popen(cmd, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
     except Exception as e:
@@ -99,9 +91,10 @@ def stream(agent, deck, file, text, context, emit):
             if not line: continue
             try: ev = json.loads(line)
             except Exception: continue
-            for out in (_claude(ev, sessions, key) if agent == 'claude' else _codex(ev, sessions, key)):
+            for out in PARSE[agent](ev, sessions, key):
                 emit(out)
         proc.wait()
+        if agent == 'kimi' and not sessions.get(key) and proc.returncode == 0: sessions[key] = CONTINUE   # (no id seen)
         if proc.returncode not in (0, None):
             # the tool's own complaints, without the noise of its plug-ins (MCP servers that are not signed in, …)
             lines = [l for l in (proc.stderr.read() or '').splitlines() if l.strip() and 'rmcp::' not in l and 'Reading additional input' not in l]
@@ -113,7 +106,32 @@ def stream(agent, deck, file, text, context, emit):
         emit(dict(kind='done', text=''))
 
 
-def _claude(ev, sessions, key):
+CONTINUE = 'continue'          # a Kimi session whose id was not seen: the next message continues the latest one here
+
+
+def command(agent, msg, sid, read_only=False):
+    """the command line that runs `agent` on one message (sid: the session to go on with, or None). Approved once by
+    the user, it works without asking each time; read_only: for a question about the session (it changes nothing)."""
+    if agent == 'claude':                  # as `claude --dangerously-skip-permissions`
+        cmd = ['claude', '-p', msg, '--output-format', 'stream-json', '--verbose', '--model', MODELS['claude']]
+        cmd += (['--allowedTools', 'Read', '--disallowedTools', 'Edit', 'Write', 'Bash', 'NotebookEdit'] if read_only
+                else ['--append-system-prompt', GUIDE, '--dangerously-skip-permissions'])
+        return cmd + (['--resume', sid] if sid else [])
+    if agent == 'codex':                   # as `codex --dangerously-bypass-approvals-and-sandbox`
+        base = ['codex', 'exec', '--json', '--skip-git-repo-check', '-C', ROOT, '-m', MODELS['codex']]
+        base += ['-s', 'read-only'] if read_only else ['--dangerously-bypass-approvals-and-sandbox']
+        return base + (['resume', sid, msg] if sid else [GUIDE + '\n\n' + msg])
+    if agent == 'kimi':                    # `kimi -p` asks for no approvals (its print mode); no system prompt flag
+        cmd = ['kimi', '-p', msg if sid else GUIDE + '\n\n' + msg, '--output-format', 'stream-json']
+        return cmd + ((['--continue'] if sid == CONTINUE else ['--session', sid]) if sid else [])
+    if agent == 'qwen':                    # as `qwen --yolo`; read only: its plan mode
+        cmd = ['qwen', '-p', msg, '--output-format', 'stream-json']
+        cmd += ['--approval-mode', 'plan'] if read_only else ['--yolo', '--append-system-prompt', GUIDE]
+        return cmd + (['--resume', sid] if sid else [])
+    raise ValueError(agent)
+
+
+def _claude(ev, sessions, key):          # (Qwen Code writes the same events)
     t = ev.get('type')
     if ev.get('session_id'): sessions[key] = ev['session_id']
     if t == 'assistant':
@@ -142,6 +160,26 @@ def _codex(ev, sessions, key):
         yield dict(kind='error', text=str(ev.get('message') or ev.get('error') or 'error'))
 
 
+def _kimi(ev, sessions, key):
+    """Kimi Code's stream-json: one message per line (an assistant reply, an assistant message with tool_calls, a
+    tool's result); its session id, where one is given (a resume hint at the end)"""
+    sess = ev.get('session')
+    sid = ev.get('session_id') or ev.get('sessionId') or (sess.get('id') if isinstance(sess, dict) else None)
+    if sid: sessions[key] = sid
+    if ev.get('role') != 'assistant': return
+    content = ev.get('content')
+    text = content if isinstance(content, str) else ''.join(c.get('text', '') for c in content or [] if isinstance(c, dict) and c.get('type') == 'text')
+    if text.strip(): yield dict(kind='text', text=text)
+    for call in ev.get('tool_calls') or []:
+        fn = call.get('function') or call
+        try: args = json.loads(fn.get('arguments') or '{}') if isinstance(fn.get('arguments'), str) else fn.get('arguments') or {}
+        except Exception: args = {}
+        yield dict(kind='tool', text=_tool(fn.get('name', 'tool'), args if isinstance(args, dict) else {}))
+
+
+PARSE = {'claude': _claude, 'codex': _codex, 'kimi': _kimi, 'qwen': _claude}
+
+
 def stop():
     with _lock:
         p = _running['proc']
@@ -160,24 +198,15 @@ user/user_skills/preferences.md. Do not change any file. Reply with only a JSON 
 def preferences(deck):
     """the agent's list of the user's design preferences from this deck's conversation (nothing is written)"""
     st = load(); who = st.get('agent'); sid = (st.get('sessions') or {}).get(f'{who}:{deck}')
-    if not who or not sid: return dict(items=[])
-    if who == 'claude':
-        cmd = ['claude', '-p', ASK_PREFS, '--output-format', 'json', '--resume', sid, '--model', MODELS['claude'], '--allowedTools', 'Read',
-               '--disallowedTools', 'Edit', 'Write', 'Bash', 'NotebookEdit']
-    else:
-        cmd = ['codex', 'exec', '--json', '--skip-git-repo-check', '-s', 'read-only', '-C', ROOT, '-m', MODELS['codex'], 'resume', sid, ASK_PREFS]
-    try: out = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=300).stdout
+    if not who or not sid or who not in PARSE: return dict(items=[])
+    try: out = subprocess.run(command(who, ASK_PREFS, sid, read_only=True), cwd=ROOT, capture_output=True, text=True, timeout=300).stdout
     except Exception as e: return dict(items=[], error=str(e))
-    text = ''
-    if who == 'claude':
-        try: text = json.loads(out).get('result', '')
-        except Exception: text = out
-    else:
-        for line in out.splitlines():
-            try: ev = json.loads(line)
-            except Exception: continue
-            it = ev.get('item') or {}
-            if it.get('type') in ('agent_message', 'assistant_message') and it.get('text'): text = it['text']
+    text, scratch = '', {}                             # the agent's last reply (its events read as while working)
+    for line in out.splitlines():
+        try: ev = json.loads(line)
+        except Exception: continue
+        for o in PARSE[who](ev, scratch, 'k'):
+            if o['kind'] == 'text': text = o['text']
     i, j = text.find('['), text.rfind(']')
     try: items = [str(x).strip() for x in json.loads(text[i:j + 1]) if str(x).strip()] if i >= 0 < j else []
     except Exception: items = []
