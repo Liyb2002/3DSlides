@@ -46,11 +46,16 @@ Put TeX between `$...$` in any text box.
 
 <img src="docs/gifs/06_agent_en.webp" width="100%" alt="The agent building a new lecture, and remembering your preferences">
 
+### 7. Practice mode: speak, and your notes are written for you
+**Practice mode** listens while you talk through each scene (speech recognition in Chrome, English or Chinese) and writes down what you say. Add it to the scene's notes as it is, or press **CleanUp**: the agent takes out the fillers and repeats and keeps your own words. Notes follow the scene, not the page; **Presenter mode** shows them next to a small slide, with the full-screen slide in a second window.
+
+<img src="docs/gifs/07_practice.webp" width="100%" alt="Practice mode: talking through a scene, the recording cleaned up into the scene's notes">
+
 ## In the editor
 
 | | |
 |---|---|
-| **P** / **Shift+P** | present from this page / from the start (**Esc** comes back) |
+| **P** / **Shift+P** | present from this page / presenter mode (**Esc** comes back) |
 | **→** / **←** | next / previous page |
 | drag, scroll | turn and zoom the 3D view (shift-drag: move it) |
 | shift / ⌘-click, or a box drag on a 2D slide | select several elements; drag one to move them all |
