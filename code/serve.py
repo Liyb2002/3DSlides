@@ -24,8 +24,8 @@ POST /api/undo | /api/redo ?deck=<folder>[&file=deck]: step back / forward
 through the saves of this server session (deck source + overrides together;
 saves less than 1.5 s apart count as one step).
 /api/agent/...: the editor's agent (Claude Code or Codex on this machine), see agent.py.
-POST /api/notes/polish {deck, file, scenes: [{key, scene, notes, transcript}]}: practice mode's transcripts tidied
-into speaker notes by that agent (read only: nothing written) -> {suggestions: {key: text}} | {error}.
+POST /api/notes/polish {deck, file, scenes: [{key, scene, text}]}: practice mode's CleanUp, each scene's notes text
+cleaned up by that agent (read only: nothing written) -> {suggestions: {key: text}} | {error}.
 GET /api/root: the folder served (code/tools/open_deck.sh reuses a server already serving it).
 GET /api/stamp?deck=<folder>[&file=deck]: change stamps, polled by open pages
 so edits show up live in every editor / presenter tab.

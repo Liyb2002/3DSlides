@@ -39,11 +39,21 @@ body.talk-body #root { user-select: text; }
 .talk-panel { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; min-height: 0; }
 .talk-box { background: #1c1f25; border: 1px solid #2a2e36; border-radius: 8px; padding: 10px 12px; }
 .talk-box.sug { border-color: #2f6fb3; }
+.talk-boxhead button { white-space: nowrap; }
 .talk-boxhead { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-weight: 600; }
 .talk-transcript { min-height: 90px; max-height: 32vh; overflow-y: auto; font-size: 15px; line-height: 1.5; white-space: pre-wrap; }
 .talk-interim { color: #8b919b; }
 .talk-notes-small { white-space: pre-wrap; font-size: 14px; line-height: 1.45; max-height: 30vh; overflow-y: auto; color: #cfd3d9; }
 .talk-sug { width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; font-size: 14px; line-height: 1.45; color: #e6e8eb; background: #121418; border: 1px solid #3a3f48; border-radius: 6px; padding: 8px; }
+.talk-notesbox { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.talk-rec-edit { width: 100%; box-sizing: border-box; height: 22vh; resize: vertical; font-family: inherit; font-size: 15px; line-height: 1.5;
+  color: #cfd3d9; background: #121418; border: 1px solid #3a3f48; border-radius: 6px; padding: 8px 10px; }
+.talk-rec-edit:read-only { opacity: .6; }
+.talk-notes-edit { flex: 1; min-height: 30vh; width: 100%; box-sizing: border-box; resize: none; font-family: inherit; font-size: 16px; line-height: 1.55;
+  color: #e6e8eb; background: #121418; border: 1px solid #3a3f48; border-radius: 6px; padding: 10px 12px; }
+.talk-notes-edit:read-only { opacity: .6; }
+.talk-interim { min-height: 1.4em; margin-top: 6px; font-size: 14px; }
+.talk-state { margin: 4px 0 0; font-size: 13px; }
 .talk-actions { display: flex; flex-direction: column; gap: 8px; }
 .talk-actions .row { display: flex; align-items: center; gap: 6px; }
 .talk-actions .wide { width: 100%; }

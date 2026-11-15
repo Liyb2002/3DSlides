@@ -227,27 +227,28 @@ def save_preferences(items):
 
 
 # ---------------------------------------------------------------- practice mode: transcripts -> speaker notes
-POLISH = """You help a speaker turn a practice run-through into speaker notes for the talk in {deck}/{file}.js (you may read
-that file, and {deck}/overrides.json, to see what each scene shows, e.g. to fix technical terms the recognizer misheard;
-change no file). For each scene below you get its key, its number, the speaker's current notes (may be empty) and a
-speech-recognition transcript of what the speaker just said while practising that scene.
+POLISH = """You help a speaker clean up the speaker notes of a talk, {deck}/{file}.js (you may read that file, and
+{deck}/overrides.json, to see what each scene shows, e.g. to fix technical terms the recognizer misheard; change no file).
+For each scene below you get its key, its number and its notes text. The text mixes what the speaker typed and what
+speech recognition wrote down while they practised the scene out loud (rough: fillers, false starts, repetitions,
+misheard words, little punctuation).
 
-Write the notes for each scene:
+Clean up each text:
 - Stay as close as you can to the speaker's own words and order. Only remove fillers, false starts and repetitions, fix
-  words the recognizer obviously got wrong, fix grammar lightly, and break it into short lines.
-- If the scene already has notes, they are the base: keep their wording and formatting, change them only where the
-  transcript clearly says it differently or adds something. Never rewrite them in your own style; do not shorten them.
-- If the transcript is empty or unusable, give the current notes back unchanged.
+  words the recognizer obviously got wrong, add punctuation, fix grammar lightly, and break it into short lines.
+- Parts that are already clean (e.g. typed notes): leave them exactly as they are, formatting included.
+- Never rewrite in your own style, never shorten, summarize or add content.
 - Keep the speaker's language{lang}.
-Reply with only one JSON object: {{"<scene key>": "<notes>", ...}}, one entry per scene below, nothing else."""
+Reply with only one JSON object: {{"<scene key>": "<cleaned text>", ...}}, one entry per scene below, nothing else."""
 
 
 def polish(deck, file, scenes, lang=None):
-    """practice mode: each scene's transcript (and its current notes) tidied into notes by the approved agent, read
-    only (nothing written; the page saves what the user accepts) -> {suggestions: {key: text}} or {error}"""
+    """practice mode's CleanUp: each scene's notes text (typed + spoken) cleaned up by the approved agent, read only
+    (nothing written; the page saves the result) -> {suggestions: {key: text}} or {error}"""
     who = load().get('agent')
     if not who or who not in PARSE: return dict(error='no agent connected: connect one in the editor first (the agent button in the top bar)')
-    scenes = [dict(key=str(s.get('key')), scene=s.get('scene'), notes=s.get('notes') or '', transcript=s.get('transcript') or '')
+    scenes = [dict(key=str(s.get('key')), scene=s.get('scene'),
+                   text=s.get('text') if s.get('text') is not None else '\n'.join(x for x in (s.get('notes'), s.get('transcript')) if x))
               for s in scenes if s.get('key') is not None]
     if not scenes: return dict(suggestions={})
     msg = POLISH.format(deck=deck, file=file, lang=f' (the talk is given in {lang})' if lang else '') + \

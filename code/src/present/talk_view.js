@@ -6,9 +6,9 @@
 //     two stay on the same page (sync.js), whichever one gets the click / key / clicker.
 //   code/index.html?deck=<folder>&mode=practice#<slide>.<step>
 //     the slide, large, with the microphone on: what you say is written down (the browser's speech recognition) for
-//     the scene shown at the time; then the agent (agent.py polish) tidies each scene's transcript into notes, as
-//     close to your own words as it can (existing notes are the base: only changed where you said it differently).
-//     Each suggestion shows on its scene, above the notes: edit it if you like, accept it (saved as the notes) or not.
+//     the scene shown at the time, into that scene's recording (kept in this browser). The recording goes into the
+//     scene's notes as it is (Add to notes) or cleaned up by the agent first (CleanUp: agent.py polish, keeping your
+//     own words); Undo takes the last one back. The notes are edited right there too, saved as you type.
 //
 // Notes belong to a scene (all its pages), not to a page: def.notes, saved in overrides.json (`notes`), written in
 // the editor (the "scene notes" button), shown here. Esc goes back to the editor at the page you are on.
@@ -174,10 +174,13 @@ const LANGS = [['en-US', 'English'], ['zh-CN', '中文']];
 export class PracticeView extends TalkView {
   constructor(root, deck, opts) {
     super(root, deck, opts);
-    this.tKey = `3dslides:practice:${this.deckName}:${this.deckFile}`;
-    this.saved = store.get(this.tKey, { transcripts: {}, suggestions: {} });   // kept in this browser until cleared
     this.lang = store.get('3dslides:practiceLang', 'en-US');
     this.recording = false; this.interim = '';
+    this.rKey = `3dslides:practice:${this.deckName}:${this.deckFile}`;
+    const kept = store.get(this.rKey, {});
+    this.recs = kept.recordings || kept.transcripts || {};   // scene key -> what was said (kept in this browser)
+    this.before = {};                                  // scene key -> [notes, recording] before the last add (undo)
+    this.saveTimers = new Map();
     this.SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     this.whereSlot = h('span', { class: 'talk-grow' });
@@ -199,12 +202,55 @@ export class PracticeView extends TalkView {
     this.startPlayer(this.slideBox);
   }
 
-  persist() { store.set(this.tKey, this.saved); }
   renderLang() { this.langBtns.forEach((b) => b.classList.toggle('on', b.dataset.lang === this.lang)); }
   get cur() { return this.player?.current; }
   keyOf(inst) { return slideKey(inst.def, inst.index); }
+  sceneOf(key) { const i = this.deck.slides.findIndex((d, j) => slideKey(d, j) === key); return i < 0 ? null : { def: this.deck.slides[i], i }; }
 
-  // ---------------------------------------------------------------- speech → text, per scene
+  // ---------------------------------------------------------------- the notes: one text per scene, saved as you go
+  setNotes(key, text) {
+    const sc = this.sceneOf(key);
+    if (!sc) return;
+    if (text.trim()) sc.def.notes = text; else delete sc.def.notes;
+    clearTimeout(this.saveTimers.get(key));
+    this.saveTimers.set(key, setTimeout(() => this.flushNotes(key), 600));
+    if (this.cur && this.keyOf(this.cur) === key && this.box && this.box.value !== text) {
+      const end = document.activeElement !== this.box || this.box.selectionStart === this.box.value.length;
+      this.box.value = text;
+      if (end) this.box.scrollTop = this.box.scrollHeight;
+    }
+  }
+
+  async flushNotes(key) {
+    this.saveTimers.delete(key);
+    const sc = this.sceneOf(key);
+    if (!sc) return;
+    try { await this.saveNotes([[sc.def, sc.i, sc.def.notes || '']]); if (this.state?.textContent.startsWith('not saved')) this.say(''); } catch (e) { this.say(`not saved: ${e.message || e}`); }
+  }
+
+  say(msg) { if (this.state) this.state.textContent = msg; }
+
+  setRec(key, text) {
+    if (text.trim()) this.recs[key] = text; else delete this.recs[key];
+    store.set(this.rKey, { recordings: this.recs });
+    if (this.cur && this.keyOf(this.cur) === key && this.recBox && this.recBox.value !== text) {
+      this.recBox.value = text; this.recBox.scrollTop = this.recBox.scrollHeight;
+    }
+    this.renderRecButtons();
+  }
+
+  // the recording (as it is, or cleaned up by the AI) goes to the end of the notes; the recording is then emptied
+  addToNotes(key, text) {
+    const sc = this.sceneOf(key);
+    if (!sc || !text.trim()) return;
+    const notes = (this.cur && this.keyOf(this.cur) === key && this.box) ? this.box.value : (sc.def.notes || '');
+    this.before[key] = [notes, this.recs[key] || ''];
+    this.setNotes(key, notes.trim() ? `${notes.replace(/\s+$/, '')}\n${text.trim()}` : text.trim());
+    this.setRec(key, '');
+    if (this.cur && this.keyOf(this.cur) === key) this.renderPanel();
+  }
+
+  // ---------------------------------------------------------------- speech → the notes of the scene shown
   startRec() {
     if (!this.SR) { this.recState.textContent = 'speech recognition is not available in this browser: use Chrome'; return; }
     this.recording = true;
@@ -222,13 +268,13 @@ export class PracticeView extends TalkView {
           else interim += `${text} `;
         }
         this.interim = interim.trim();
-        this.renderTranscript();
+        this.renderInterim();
       };
       rec.onerror = (e) => {
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { this.recording = false; this.recState.textContent = 'microphone not allowed'; this.renderRec(); }
         else if (e.error === 'network') this.recState.textContent = 'speech recognition needs the network';
       };
-      rec.onend = () => { this.interim = ''; if (this.recording) run(); else this.renderTranscript(); };   // it stops by itself now and then
+      rec.onend = () => { this.interim = ''; this.renderInterim(); if (this.recording) run(); };   // it stops by itself now and then
       rec.start();
       this.rec = rec;
     };
@@ -239,9 +285,9 @@ export class PracticeView extends TalkView {
   stopRec() { this.recording = false; try { this.rec?.stop(); } catch { /* done */ } this.renderRec(); }
 
   addText(key, text) {
-    const T = this.saved.transcripts, sep = this.lang.startsWith('zh') ? '' : ' ';
-    T[key] = T[key] ? `${T[key]}${sep}${text}` : text;
-    this.persist();
+    const cur = (this.cur && this.keyOf(this.cur) === key && this.recBox) ? this.recBox.value : (this.recs[key] || '');
+    const sep = !cur || /\s$/.test(cur) ? '' : this.lang.startsWith('zh') ? '' : ' ';
+    this.setRec(key, `${cur}${sep}${text}`);
   }
 
   renderRec() {
@@ -252,109 +298,83 @@ export class PracticeView extends TalkView {
     else if (this.recState.textContent === 'listening…') this.recState.textContent = '';
   }
 
-  // ---------------------------------------------------------------- the panel: this scene
-  update(inst) { this.whereSlot.replaceChildren(this.where(inst)); this.renderPanel(); }
+  renderInterim() { if (this.interimEl) this.interimEl.textContent = this.interim; }
 
-  renderTranscript() {
-    if (!this.trBox || !this.cur) return;
-    const said = this.saved.transcripts[this.keyOf(this.cur)] || '';
-    this.trBox.replaceChildren(...[said ? h('span', {}, said) : null, this.interim ? h('span', { class: 'talk-interim' }, ` ${this.interim}`) : null,
-      !said && !this.interim ? h('span', { class: 'talk-empty' }, this.recording ? 'speak: it is written down here for this scene' : 'press Record, then talk through the scene') : null].filter(Boolean));
-    this.trBox.scrollTop = this.trBox.scrollHeight;
-    this.countEl && (this.countEl.textContent = this.countText());
-  }
-
-  countText() {
-    const n = Object.values(this.saved.transcripts).filter((s) => s.trim()).length;
-    return `${n} scene${n === 1 ? '' : 's'} recorded`;
+  // ---------------------------------------------------------------- the panel: this scene's notes
+  update(inst, sceneChanged) {
+    this.whereSlot.replaceChildren(this.where(inst));
+    if (sceneChanged || !this.box) this.renderPanel();
   }
 
   renderPanel() {
     const inst = this.cur;
     if (!inst) return;
-    const key = this.keyOf(inst), sug = this.saved.suggestions[key];
-    this.trBox = h('div', { class: 'talk-transcript talk-user' });
-    const notes = this.notesText(inst.def);
-    let sugBox = null;
-    if (sug != null) {
-      const ta = h('textarea', { class: 'talk-sug', rows: 8 }); ta.value = sug;
-      ta.addEventListener('input', () => { this.saved.suggestions[key] = ta.value; this.persist(); });
-      sugBox = h('section', { class: 'talk-box sug' },
-        h('div', { class: 'talk-boxhead' }, h('span', {}, 'AI suggestion'), h('span', { class: 'talk-grow' }),
-          h('button', { onclick: () => this.discard([key]) }, 'discard'),
-          h('button', { class: 'primary', title: 'save it as this scene’s notes', onclick: () => this.accept([key]) }, 'use as notes')),
-        ta);
-    }
-    this.countEl = h('span', { class: 'talk-dim' }, this.countText());
-    const pending = Object.keys(this.saved.suggestions).length;
-    this.panel.replaceChildren(...[
-      h('section', { class: 'talk-box' },
-        h('div', { class: 'talk-boxhead' }, h('span', {}, 'What you said · this scene'), h('span', { class: 'talk-grow' }),
-          h('button', { title: 'forget what was recorded for this scene (to say it again)', onclick: () => { delete this.saved.transcripts[key]; this.persist(); this.renderPanel(); } }, 'clear')),
-        this.trBox),
-      sugBox,
-      h('section', { class: 'talk-box' },
-        h('div', { class: 'talk-boxhead' }, h('span', {}, 'Notes · this scene')),
-        notes ? h('div', { class: 'talk-notes-small talk-user' }, notes) : h('p', { class: 'talk-empty' }, 'no notes yet')),
-      h('section', { class: 'talk-box talk-actions' },
-        h('div', { class: 'row' }, this.countEl, h('span', { class: 'talk-grow' }),
-          h('button', { title: 'forget every scene’s recording and suggestion (click twice)', onclick: (e) => {
-            if (!e.currentTarget.classList.contains('arm')) { e.currentTarget.classList.add('arm'); e.currentTarget.textContent = 'click again to clear all'; return; }
-            this.saved = { transcripts: {}, suggestions: {} }; this.persist(); this.renderPanel(); } }, 'clear all')),
-        this.aiBtn = h('button', { class: 'primary wide', title: 'the agent connected in the editor tidies each recorded scene into notes, close to your own words; nothing is saved until you accept it',
-          onclick: () => this.polish() }, 'AI: tidy what I said into notes'),
-        pending ? h('button', { class: 'wide', title: 'save every scene’s suggestion as its notes', onclick: () => this.accept(Object.keys(this.saved.suggestions)) }, `use all ${pending} suggestions as notes`) : null,
-        this.aiState = h('p', { class: 'talk-dim' }, '')),
-    ].filter(Boolean));
-    this.renderTranscript();
+    const key = this.keyOf(inst);
+    this.recBox = h('textarea', { class: 'talk-rec-edit talk-user', placeholder: 'press Record and talk through the scene: what you say is written down here' });
+    this.recBox.value = this.recs[key] || '';
+    this.recBox.addEventListener('input', () => this.setRec(key, this.recBox.value));
+    this.interimEl = h('div', { class: 'talk-interim talk-user' });
+    this.box = h('textarea', { class: 'talk-notes-edit talk-user', placeholder: 'this scene’s notes (shown in presenter mode)' });
+    this.box.value = inst.def.notes || '';
+    this.box.addEventListener('input', () => this.setNotes(key, this.box.value));
+    this.state = h('p', { class: 'talk-dim talk-state' }, '');
+    this.addBtn = h('button', { title: 'put the recording, as it is, at the end of the notes', onclick: () => this.addToNotes(key, this.recBox.value) }, 'Add to notes');
+    this.cleanBtn = h('button', { class: 'primary', title: 'AI cleans up the recording (fillers, repeats, misheard words), keeping your own words, and puts it at the end of the notes',
+      onclick: () => this.cleanUp(key) }, 'CleanUp');
+    this.clearBtn = h('button', { title: 'forget the recording of this scene (to say it again)', onclick: () => this.setRec(key, '') }, 'Clear');
+    const undo = this.before[key] ? h('button', { title: 'take back the last add: the notes and the recording as they were',
+      onclick: () => { const [n, r] = this.before[key]; delete this.before[key]; this.setNotes(key, n); this.setRec(key, r); this.renderPanel(); } }, 'Undo') : null;
+    this.panel.replaceChildren(
+      h('section', { class: 'talk-box talk-recbox' },
+        h('div', { class: 'talk-boxhead' }, h('span', {}, 'Recording'), h('span', { class: 'talk-grow' }), this.clearBtn, this.addBtn, this.cleanBtn),
+        this.recBox, this.interimEl),
+      h('section', { class: 'talk-box talk-notesbox' },
+        h('div', { class: 'talk-boxhead' }, h('span', {}, 'Notes'), h('span', { class: 'talk-grow' }), undo),
+        this.box, this.state));
+    this.renderInterim(); this.renderRecButtons();
+    this.recBox.scrollTop = this.recBox.scrollHeight;
   }
 
-  // ---------------------------------------------------------------- AI: transcripts → notes
-  async polish() {
-    const scenes = this.deck.slides.map((def, i) => ({ def, i, key: slideKey(def, i) }))
-      .filter((s) => (this.saved.transcripts[s.key] || '').trim())
-      .map((s) => ({ key: s.key, scene: s.i + 1, notes: this.notesText(s.def), transcript: this.saved.transcripts[s.key] }));
-    if (!scenes.length) { this.aiState.textContent = 'nothing recorded yet'; return; }
-    if (this.recording) this.stopRec();
-    this.aiBtn.disabled = true; this.aiState.textContent = `the agent is tidying ${scenes.length} scene${scenes.length > 1 ? 's' : ''}… (a minute or two)`;
+  renderRecButtons() {
+    const empty = !(this.recBox?.value || '').trim();
+    for (const b of [this.addBtn, this.cleanBtn, this.clearBtn]) if (b && !this.cleaning) b.disabled = empty;
+  }
+
+  // ---------------------------------------------------------------- AI: the recording, cleaned up, into the notes
+  async cleanUp(key) {
+    const sc = this.sceneOf(key);
+    const text = this.recBox?.value ?? this.recs[key] ?? '';
+    if (!sc || !text.trim()) return;
+    const wasRec = this.recording;
+    if (wasRec) this.stopRec();                         // nothing added while the AI works on it
+    this.cleaning = true;
+    [this.addBtn, this.cleanBtn, this.clearBtn].forEach((b) => { b.disabled = true; });
+    this.recBox.readOnly = true; this.say('cleaning up the recording… (a minute or so)');
     try {
       const r = await fetch('/api/notes/polish', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck: this.deckName, file: this.deckFile, scenes, lang: LANGS.find(([v]) => v === this.lang)?.[1] }) });
+        body: JSON.stringify({ deck: this.deckName, file: this.deckFile, scenes: [{ key, scene: sc.i + 1, text }], lang: LANGS.find(([v]) => v === this.lang)?.[1] }) });
       if (r.status === 404) throw new Error('the server is older than this page: restart it (python3 code/serve.py)');
       if (!r.ok) throw new Error(`the server answered ${r.status}`);
       const res = await r.json();
       if (res.error) throw new Error(res.error);
-      Object.assign(this.saved.suggestions, res.suggestions); this.persist();
-      this.aiBtn.disabled = false;
-      this.renderPanel();
-      const n = Object.keys(res.suggestions).length;
-      this.aiState.textContent = `${n} suggestion${n === 1 ? '' : 's'} ready: each shows on its scene, above its notes`;
+      const out = res.suggestions?.[key];
+      if (out == null) throw new Error('the AI gave nothing back');
+      this.cleaning = false;
+      this.addToNotes(key, out);
+      this.say('cleaned up and added to the notes · Undo takes it back');
     } catch (e) {
-      this.aiBtn.disabled = false; this.aiState.textContent = `failed: ${e.message || e}`;
+      this.cleaning = false;
+      if (this.recBox) this.recBox.readOnly = false;
+      this.renderRecButtons();
+      this.say(`failed: ${e.message || e}`);
     }
+    if (wasRec) this.startRec();
   }
-
-  async accept(keys) {
-    const list = [];
-    for (const key of keys) {
-      const i = this.deck.slides.findIndex((d, j) => slideKey(d, j) === key);
-      if (i >= 0 && this.saved.suggestions[key] != null) list.push([this.deck.slides[i], i, this.saved.suggestions[key]]);
-    }
-    if (!list.length) return;
-    try { await this.saveNotes(list); } catch (e) {                // kept: the suggestions stay until they are saved
-      if (this.aiState) this.aiState.textContent = `failed: ${e.message || e}`;
-      return;
-    }
-    for (const key of keys) { delete this.saved.suggestions[key]; delete this.saved.transcripts[key]; }   // done with: said, and written down
-    this.persist();
-    this.renderPanel();
-  }
-
-  discard(keys) { for (const key of keys) delete this.saved.suggestions[key]; this.persist(); this.renderPanel(); }
 
   end() { const c = this.cur; this.exit(c ? c.index : 0, c ? c.stepIndex : 0); }
-  exit(i, k) {
+  async exit(i, k) {
     this.stopRec();
+    await Promise.all([...this.saveTimers.keys()].map((key) => { clearTimeout(this.saveTimers.get(key)); return this.flushNotes(key); }));
     super.exit(i, k);
   }
 }
