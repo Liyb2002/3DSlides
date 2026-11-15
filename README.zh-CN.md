@@ -9,59 +9,57 @@
 
 ## 怎么用
 
-在 Mac 上：
-
-1. clone 下来后运行一次：`zsh code/tools/make_app.sh`
-2. 之后双击任意 `.3Dslides` 文件（比如 `showcase.3Dslides`），就会在浏览器里打开编辑器。
-
-不需要另外开任何东西：app 会自己在后台启动一个本地小服务器（已经有一个在跑就直接复用）。
-需要 Python 3 和 Chrome。
-
-其他系统，或者想用终端：`python3 code/serve.py`，然后打开 http://localhost:8000/ 。
+1. clone 这个仓库。
+2. 运行 `zsh code/tools/make_app.sh`（只需一次）或 `python3 code/serve.py`。
+3. 双击任意 `.3Dslides` 文件（比如 `showcase.3Dslides`），或打开 http://localhost:8000/ 。
 
 ## 功能
 
 ### 1. 一页就是一个 3D 场景，放映时可以随意拖拽查看
 放映时拖动鼠标转视角、滚轮缩放，当着观众实时操作。按 **R** 平滑回到原来的视角。
 
-<img src="docs/gifs/01_look_around.gif" width="720" alt="放映时拖拽查看 3D 幻灯片">
+<img src="docs/gifs/01_look_around.webp" width="100%" alt="放映时拖拽查看 3D 幻灯片">
 
 ### 2. 添加 page：移动镜头，保存视角
 一个 page 就是一个镜头视角。添加 page，把镜头移到想看的地方，点 **set as current camera**（中文界面是“设为此页镜头”）。
 放映时每点一下，镜头就飞到下一页。
 
-<img src="docs/gifs/02_add_page.gif" width="720" alt="添加 page 并保存视角">
+<img src="docs/gifs/02_add_page.webp" width="100%" alt="添加 page 并保存视角">
 
 ### 3. 打光
-任何一页都可以加聚光灯和点光源。在场景里直接拖动，调颜色、强度和照射范围。
+先把环境光调暗，再在任何一页加聚光灯和点光源。在场景里直接拖动，调颜色、强度和照射范围。
 
-<img src="docs/gifs/03_lights.gif" width="720" alt="添加聚光灯和点光源">
+<img src="docs/gifs/03_lights.webp" width="100%" alt="添加聚光灯和点光源">
 
 ### 4. 新建 3D / 2D 场景
 **+ 新建 3D 场景**：上传一个模型（stl、obj、ply、glb、gltf、3mf），自动生成展示它的 3D 场景，可以直接转着看。
 
-<img src="docs/gifs/04_new_3d_scene.gif" width="720" alt="上传模型新建 3D 场景">
+<img src="docs/gifs/04_new_3d_upload.webp" width="100%" alt="上传模型新建 3D 场景">
+
+也可以点 **生成**（Generate），告诉 agent 场景里要有什么，它直接帮你把场景写出来。
+
+<img src="docs/gifs/04_new_3d_agent.webp" width="100%" alt="agent 写一个新的 3D 场景">
 
 **+ 新建 2D 场景**：普通的幻灯片，可以放文字、图片、视频，背景色自己选。
 从 3D 场景切到 2D 幻灯片只要点一下。
 
-<img src="docs/gifs/05_new_2d_scene.gif" width="720" alt="新建 2D 场景">
+<img src="docs/gifs/05_new_2d_scene.webp" width="100%" alt="新建 2D 场景">
 
 ### 5. 写 TeX 公式
 在任何文本框里用 `$...$` 写 TeX，编辑结束就会渲染成公式。
 
-<img src="docs/gifs/06_tex.gif" width="720" alt="用 TeX 写公式">
+<img src="docs/gifs/06_tex.webp" width="100%" alt="用 TeX 写公式">
 
 ### 6. 让 agent 来做，它还会记住你的偏好
 **连接 Agent** 会调用你自己电脑上的 [Kimi Code](https://www.kimi.com/code)、
 [Qwen Code](https://github.com/QwenLM/qwen-code) 或 [Codex](https://github.com/openai/codex)（需要先装好并登录）。
 让它新建场景或加页面，结果会直接出现在你的 deck 里。
 
-<img src="docs/gifs/07_agent_zh.gif" width="720" alt="agent 新建一个讲座">
+<img src="docs/gifs/07_agent_zh.webp" width="100%" alt="agent 新建一个讲座">
 
 关闭面板时，它会提议把你要求过的风格（字体、排版、颜色等）记到 `user/user_skills/` 里，下次一开始就按你的风格来。
 
-<img src="docs/gifs/08_preferences_zh.gif" width="720" alt="agent 提议记住你的偏好">
+<img src="docs/gifs/08_preferences_zh.webp" width="100%" alt="agent 提议记住你的偏好">
 
 ## 编辑器操作
 
@@ -92,10 +90,3 @@ showcase.3Dslides/
 
 自带两个 talk：`showcase.3Dslides` 是四个简短的讲座（双摆混沌、灵巧机械手、直列四缸发动机、巴黎圣母院），
 `demo.3Dslides` 是一次走进梵高画作的漫游。
-
-## 致谢
-
-作者：[Yuanbo Li](https://liyb2002.github.io/)。
-
-基于 [three.js](https://threejs.org/) 和 [KaTeX](https://katex.org/)（都已放在 `code/vendor/` 里）。
-`demo.3Dslides` 里的画作是来自 Wikimedia Commons 的公有领域图片。
