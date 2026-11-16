@@ -37,6 +37,7 @@ try {
       baseUrl, mode: 'run', dev,
       onExit: audience ? null : (i, k) => { location.href = `?deck=${deckName}&file=${deckFile}#${i + 1}.${k}`; },
       onChange: () => link?.send(),
+      onCamera: (inst, what) => link?.sendCamera(what),
     });
     window.player = player;
     player.start();

@@ -53,6 +53,7 @@ class TalkView {
     this.player = new Player(box, this.deck, {
       baseUrl: this.baseUrl, mode: 'run', startAt: [m ? +m[1] - 1 : 0, m ? +(m[2] || 0) : 0],
       onExit: (i, k) => this.exit(i, k),
+      onCamera: (inst, what) => this.link?.sendCamera(what),
       onChange: (inst) => {
         this.link?.send();
         const key = `${inst.index}.${inst.stepIndex}`;
@@ -126,7 +127,7 @@ export class PresenterView extends TalkView {
     this.nextInfo = h('div', { class: 'talk-next' });
     this.root.append(h('div', { class: 'talk talk-presenter' }, bar,
       h('div', { class: 'talk-main' }, this.notes, h('div', { class: 'talk-side' }, this.slideBox, this.nextInfo,
-        h('p', { class: 'talk-hint' }, '→ / space / click: next · ←: back · Esc: end · the audience window follows')))));
+        h('p', { class: 'talk-hint' }, '→ / space / click: next · ←: back · drag: turn the 3D view · R: back to its camera · Esc: end · the audience window follows')))));
     this.zoom(0);
     this.link = null;
     this.startPlayer(this.slideBox);

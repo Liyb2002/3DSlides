@@ -4,7 +4,10 @@
 // moves both (a clicker may be talking to either). Changes made while following are not posted back (no echo).
 //
 //   const link = linkPlayers(player, channelName(deck, file), { hello: true, onMessage })
-//   new Player(..., { onChange: () => link?.send() })
+//   new Player(..., { onChange: () => link?.send(), onCamera: (inst, what) => link?.sendCamera(what) })
+//
+// The 3D view turned by hand in either window (drag / scroll, R: back) is turned the same way in the other, when
+// both are on the same page. Poses are sent at most once a frame; one received is set without being sent back.
 
 export const channelName = (deck, file) => `3dslides:${deck}:${file}`;
 
@@ -25,12 +28,32 @@ export function linkPlayers(player, name, { hello = false, onMessage = null } = 
     if (oneOn) player.next(); else player.jump(i, k, k === 0);
     player.enqueue(() => { following = false; });
   };
+  let raf = 0, reset = false;
+  const sendCamera = (what = 'pose') => {
+    if (following) return;
+    if (what === 'reset') { reset = true; cancelAnimationFrame(raf); raf = 0; }
+    else if (raf) return;
+    const flush = () => {
+      raf = 0;
+      const c = player.current, p = place();
+      if (!c?.is3D || !p) return;
+      if (reset) { reset = false; post({ type: 'reset', ...p }); return; }
+      post({ type: 'camera', ...p, position: c.camera.position.toArray(), target: c.rig.target.toArray(), fov: c.camera.fov });
+    };
+    if (what === 'reset') flush(); else raf = requestAnimationFrame(flush);
+  };
+  const here = ({ i, k }) => { const c = player.current; return c && c.index === i && c.stepIndex === k; };
+  const view = (m) => player.enqueue(() => {            // after any page change in progress
+    if (!here(m)) return;
+    if (m.type === 'reset') player.current.resetView?.(); else player.setView(m);
+  });
   ch.onmessage = (e) => {
     const m = e.data || {};
     if (m.type === 'hello') send(true);                // a window just opened: here is where we are
     else if (m.type === 'place') follow(m);
+    else if (m.type === 'camera' || m.type === 'reset') view(m);
     else onMessage?.(m);
   };
   if (hello) post({ type: 'hello' });
-  return { send, post, close: () => ch.close() };
+  return { send, sendCamera, post, close: () => { cancelAnimationFrame(raf); ch.close(); } };
 }

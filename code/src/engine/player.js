@@ -17,7 +17,7 @@ import { tweenTask, Scheduler } from './tween.js';
 import { poseToJSON } from './camera_rig.js';
 
 export class Player {
-  constructor(root, deck, { baseUrl, mode = 'run', dev = false, startAt = null, onExit = null, onChange = null } = {}) {
+  constructor(root, deck, { baseUrl, mode = 'run', dev = false, startAt = null, onExit = null, onChange = null, onCamera = null } = {}) {
     this.root = root;
     this.deck = deck;
     this.baseUrl = baseUrl;
@@ -28,6 +28,7 @@ export class Player {
     this.startAt = startAt;
     this.onExit = onExit;
     this.onChange = onChange;
+    this.onCamera = onCamera;       // the viewer turned the 3D view by hand (pose) or sent it back (R: 'reset')
     this.size = deck.size || [1920, 1080];
     this.slides = deck.slides;
     this.current = null;
@@ -258,7 +259,7 @@ export class Player {
         case 'c': case 'C':
           if (this.dev) this.copyPose(); break;
         case 'r': case 'R':                       // back to the camera the animations put there
-          if (!this.editing) this.current?.resetView?.(); break;
+          if (!this.editing) this.resetView(); break;
       }
     });
     if (this.editing) return;
@@ -321,8 +322,27 @@ export class Player {
       c.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: null };
     }
     c.update();
-    c.addEventListener('change', () => this.onChange?.(inst));
+    c.addEventListener('change', () => { this.onChange?.(inst); this.onCamera?.(inst, 'pose'); });
     inst.devControls = c;
+  }
+
+  // R: back to the camera the animations put there
+  resetView() {
+    const c = this.current;
+    if (!c?.is3D) return;
+    c.resetView();
+    this.onCamera?.(c, 'reset');
+  }
+
+  // the other window of the talk turned its view (sync.js): turn this one the same way. Set straight on the
+  // camera (not through the controls: no 'change' event, so it is not sent back); the controls share rig.target.
+  setView({ position, target, fov }) {
+    const c = this.current;
+    if (!c?.is3D || c.disposed) return;
+    c.camera.position.fromArray(position);
+    c.rig.target.fromArray(target);
+    if (fov != null) c.camera.fov = fov;
+    c.rig.apply();
   }
 
   currentPose() {
